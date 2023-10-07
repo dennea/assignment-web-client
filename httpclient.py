@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # coding: utf-8
 # Copyright 2016 Abram Hindle, https://github.com/tywtyw2002, and https://github.com/treedust
-# 
+# Copyright 2023 Dennea MacCallum
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -17,12 +18,14 @@
 # Do not use urllib's HTTP GET and POST mechanisms.
 # Write your own HTTP GET and POST
 # The point is to understand what you have to send and get experience with it
+# Copyright 2023 Dennea MacCallum
 
 import sys
 import socket
-import re
 # you may use urllib to encode data appropriately
-import urllib.parse
+# reference: https://docs.python.org/3/library/urllib.parse.html
+
+from urllib.parse import urlparse, urlencode
 
 def help():
     print("httpclient.py [GET/POST] [URL]\n")
@@ -41,13 +44,14 @@ class HTTPClient(object):
         return None
 
     def get_code(self, data):
-        return None
+        return int(data.split()[1])
 
     def get_headers(self,data):
-        return None
+        end_index = data.find('\r\n\r\n')
+        return data[:end_index].strip()
 
     def get_body(self, data):
-        return None
+        return data.split('\r\n\r\n')[1]
     
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
@@ -68,13 +72,62 @@ class HTTPClient(object):
         return buffer.decode('utf-8')
 
     def GET(self, url, args=None):
-        code = 500
-        body = ""
-        return HTTPResponse(code, body)
+            # parse the url
+            parsed_url = urlparse(url)
+            host = parsed_url.hostname
+            path = parsed_url.path if parsed_url.path else '/'
+            port = parsed_url.port
+
+            if not port:
+                port = 80 if parsed_url.scheme == 'http' else 443
+
+            self.connect(host, port)
+
+            # check for arguments and add them to the path
+            if args:
+                query = urlencode(args)
+                path = f"{path}?{query}"
+
+            # make sure to close the network connection after request is complete
+            request = f"GET {path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n"
+            self.sendall(request)
+            
+            recv = self.recvall(self.socket)
+            self.close()
+
+            code = self.get_code(recv)
+            body = self.get_body(recv)
+            print(recv)
+
+            return HTTPResponse(code, body)
 
     def POST(self, url, args=None):
-        code = 500
-        body = ""
+        #parse the url
+        parsed_url = urlparse(url)
+        host = parsed_url.hostname
+        path = parsed_url.path if parsed_url.path else '/'
+        port = parsed_url.port
+        data = ''
+
+        if not port:
+            port = 80 if parsed_url.scheme == 'http' else 443
+
+        self.connect(host, port)
+
+        # check for arguments
+        if args:
+            data = urlencode(args)
+
+        request = f"POST {path} HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {len(data)}\r\nContent-Type: application/x-www-form-urlencoded\r\nConnection: close\r\n\r\n{data}"
+        self.sendall(request)
+        
+        recv = self.recvall(self.socket)
+        self.close()
+
+        code = self.get_code(recv)
+        body = self.get_body(recv)
+        print(recv)
+
         return HTTPResponse(code, body)
 
     def command(self, url, command="GET", args=None):
