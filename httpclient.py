@@ -72,14 +72,12 @@ class HTTPClient(object):
         return buffer.decode('utf-8')
 
     def GET(self, url, args=None):
+            print(url)
             # parse the url
             parsed_url = urlparse(url)
             host = parsed_url.hostname
             path = parsed_url.path if parsed_url.path else '/'
-            port = parsed_url.port
-
-            if not port:
-                port = 80 if parsed_url.scheme == 'http' else 443
+            port = parsed_url.port if parsed_url.port else 80
 
             self.connect(host, port)
 
@@ -106,11 +104,8 @@ class HTTPClient(object):
         parsed_url = urlparse(url)
         host = parsed_url.hostname
         path = parsed_url.path if parsed_url.path else '/'
-        port = parsed_url.port
+        port = parsed_url.port if parsed_url.port else 80
         data = ''
-
-        if not port:
-            port = 80 if parsed_url.scheme == 'http' else 443
 
         self.connect(host, port)
 
@@ -118,7 +113,7 @@ class HTTPClient(object):
         if args:
             data = urlencode(args)
 
-        request = f"POST {path} HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {len(data)}\r\nContent-Type: application/x-www-form-urlencoded\r\nConnection: close\r\n\r\n{data}"
+        request = f"POST {path} HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {len(data)}\r\nConnection: close\r\n\r\n{data}"
         self.sendall(request)
         
         recv = self.recvall(self.socket)
